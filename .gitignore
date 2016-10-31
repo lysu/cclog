@@ -33,4 +33,6 @@
 # Debug files
 *.dSYM/
 *.su
+build/
+.idea/
 

@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include "stdio.h"
 #include "cclog.h"
 
@@ -8,4 +9,7 @@ int main(void) {
    printf("starting....\n");
    char *x = "1211111111111111111111111111111111111111111";
    logger_write(logger, x, strlen(x));
+   printf("writed\n");
+   sleep(5);
+   printf("all donn\n");
 }

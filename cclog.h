@@ -1,9 +1,10 @@
 #ifndef CCLOG_CCLOG_H
 #define CCLOG_CCLOG_H
 
-#include <glib/glist.h>
-#include <ntsid.h>
+#include <glib.h>
+
 #include "ccbuffer.h"
+#include "pthread.h"
 
 struct cclogger_s {
     int flush_interval;
