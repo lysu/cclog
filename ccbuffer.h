@@ -16,7 +16,7 @@ typedef struct cc_buffer_s cc_buffer_t;
 
 cc_buffer_t *create_buffer(size_t size);
 
-void clear_buffer(cc_buffer_t *buff);
+void buffer_free(cc_buffer_t *buff);
 
 size_t buffer_avail(cc_buffer_t *buffer);
 

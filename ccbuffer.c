@@ -11,7 +11,7 @@ cc_buffer_t *create_buffer(size_t size) {
     return buf;
 }
 
-void clear_buffer(cc_buffer_t *buff) {
+void buffer_free(cc_buffer_t *buff) {
     free(buff->data);
     free(buff);
 }

@@ -3,7 +3,7 @@
 #include <sys/time.h>
 #include "cclog.h"
 
-static void* writer_func(void *targ);
+static void *writer_func(void *targ);
 
 cclogger_t *logger_create(char *basename, int flush_interval, size_t roll_size) {
     cclogger_t *logger = calloc(1, sizeof(cclogger_t));
@@ -49,7 +49,7 @@ void logger_write(cclogger_t *logger, char *content, size_t len) {
     pthread_mutex_unlock(&logger->mutex);
 }
 
-static void* writer_func(void *targ) {
+static void *writer_func(void *targ) {
     cclogger_t *logger = targ;
 
     pthread_mutex_lock(&logger->start_mutex);
@@ -61,7 +61,7 @@ static void* writer_func(void *targ) {
     cc_buffer_t *new_buff2 = create_log_buffer();
     GList *buffer_to_write = NULL;
 
-    while(logger->is_running) {
+    while (logger->is_running) {
         pthread_mutex_lock(&logger->mutex);
         if (g_list_length(logger->buffs) == 0) {
             struct timespec ts;
@@ -70,9 +70,14 @@ static void* writer_func(void *targ) {
         }
         logger->buffs = g_list_append(logger->buffs, logger->current_buffer);
         logger->current_buffer = new_buff1;
-        buffer_to_write = logger->buffs;
+
+        GList *tmp = logger->buffs;
+        logger->buffs = buffer_to_write;
+        buffer_to_write = tmp;
+
         if (logger->next_buffer != NULL) {
             logger->next_buffer = new_buff2;
+            new_buff2 = NULL;
         }
         pthread_mutex_unlock(&logger->mutex);
 
@@ -86,40 +91,38 @@ static void* writer_func(void *targ) {
             // TODO: replace me.
             printf("%s", buf);
 
-            buffer_to_write = g_list_remove_link(buffer_to_write, buffer_to_write);
-            buffer_to_write = g_list_remove_link(buffer_to_write, buffer_to_write);
+            for (guint j = 0; j < g_list_length(buffer_to_write); j++) {
+                if (j < 2) {
+                    continue;
+                }
+                GList *to_erase = buffer_to_write;
+                buffer_to_write = g_list_remove_link(buffer_to_write, to_erase);
+                if (to_erase != NULL) {
+                    buffer_free(to_erase->data);
+                }
+            }
         }
 
-        guint i;
-        for (i = 0; i < g_list_length(buffer_to_write); i++) {
+        for (guint i = 0; i < g_list_length(buffer_to_write); i++) {
             cc_buffer_t *buf = g_list_nth_data(buffer_to_write, i);
 
             fputs(buf->data, stdout);
         }
 
-        if (g_list_length(buffer_to_write) > 2) {
-            for (int j = 0; j < g_list_length(buffer_to_write) - 2; i++) {
-                buffer_to_write = g_list_remove_link(buffer_to_write, buffer_to_write);
-            }
-        }
+        GList *last = g_list_last(buffer_to_write);
+        buffer_to_write = g_list_remove_link(buffer_to_write, last);
+        new_buff1 = last->data;
+        buffer_reset(new_buff1);
 
-        if (new_buff1 != NULL) {
-            GList *last = g_list_last(buffer_to_write);
-            buffer_to_write = g_list_remove_link(buffer_to_write, last);
-            new_buff1 = last->data;
-            buffer_reset(new_buff1);
-        }
-
-        if (new_buff2 != NULL) {
-            GList *last = g_list_last(buffer_to_write);
-            if (last !=  NULL) {
+        if (new_buff2 == NULL) {
+            last = g_list_last(buffer_to_write);
+            if (last != NULL) {
                 buffer_to_write = g_list_remove_link(buffer_to_write, last);
                 new_buff2 = last->data;
                 buffer_reset(new_buff2);
             }
 
         }
-        buffer_to_write = NULL;
     }
     return NULL;
 }
