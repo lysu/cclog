@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include "cclog.h"
+#include "cclogfile.h"
 
 static void *writer_func(void *targ);
 
@@ -10,8 +11,8 @@ cclogger_t *logger_create(char *basename, int flush_interval, size_t roll_size) 
     logger->basename = basename;
     logger->flush_interval = flush_interval;
     logger->roll_size = roll_size;
-    logger->current_buffer = create_log_buffer();
-    logger->next_buffer = create_log_buffer();
+    logger->current_buffer = create_log_buffer("curr");
+    logger->next_buffer = create_log_buffer("next");
     logger->buffs = NULL;
     logger->is_running = 0;
     pthread_cond_init(&logger->cond, NULL);
@@ -36,12 +37,13 @@ void logger_write(cclogger_t *logger, char *content, size_t len) {
         buffer_append(logger->current_buffer, content, len);
     } else {
         logger->buffs = g_list_append(logger->buffs, logger->current_buffer);
+        printf("wwwwwwwwwwwwwww==========\n");
         logger->current_buffer = NULL;
         if (logger->next_buffer != NULL) {
             logger->current_buffer = logger->next_buffer;
             logger->next_buffer = NULL;
         } else {
-            logger->current_buffer = create_log_buffer();
+            logger->current_buffer = create_log_buffer("new");
         }
         buffer_append(logger->current_buffer, content, len);
         pthread_cond_signal(&logger->cond);
@@ -52,13 +54,15 @@ void logger_write(cclogger_t *logger, char *content, size_t len) {
 static void *writer_func(void *targ) {
     cclogger_t *logger = targ;
 
+    cc_logfile_t *output = cc_logfile_create(logger->basename, logger->roll_size, 3, 1024);
+
     pthread_mutex_lock(&logger->start_mutex);
     logger->is_running = 1;
     pthread_cond_signal(&logger->start_cond);
     pthread_mutex_unlock(&logger->start_mutex);
 
-    cc_buffer_t *new_buff1 = create_log_buffer();
-    cc_buffer_t *new_buff2 = create_log_buffer();
+    cc_buffer_t *new_buff1 = create_log_buffer("buf1");
+    cc_buffer_t *new_buff2 = create_log_buffer("buf2");
     GList *buffer_to_write = NULL;
 
     while (logger->is_running) {
@@ -69,16 +73,18 @@ static void *writer_func(void *targ) {
             pthread_cond_timedwait(&logger->cond, &logger->mutex, &ts);
         }
         logger->buffs = g_list_append(logger->buffs, logger->current_buffer);
+
         logger->current_buffer = new_buff1;
 
         GList *tmp = logger->buffs;
         logger->buffs = buffer_to_write;
         buffer_to_write = tmp;
 
-        if (logger->next_buffer != NULL) {
+        if (logger->next_buffer == NULL) {
             logger->next_buffer = new_buff2;
             new_buff2 = NULL;
         }
+
         pthread_mutex_unlock(&logger->mutex);
 
         if (g_list_length(buffer_to_write) > 25) {
@@ -87,26 +93,25 @@ static void *writer_func(void *targ) {
                      "2011",
                      g_list_length(buffer_to_write) - 2);
             fputs(buf, stderr);
-
-            // TODO: replace me.
-            printf("%s", buf);
+            cc_logfile_append(output, buf, strlen(buf));
 
             for (guint j = 0; j < g_list_length(buffer_to_write); j++) {
                 if (j < 2) {
                     continue;
                 }
+                printf("start clean");
                 GList *to_erase = buffer_to_write;
                 buffer_to_write = g_list_remove_link(buffer_to_write, to_erase);
                 if (to_erase != NULL) {
                     buffer_free(to_erase->data);
                 }
+                printf("do clean");
             }
         }
 
         for (guint i = 0; i < g_list_length(buffer_to_write); i++) {
             cc_buffer_t *buf = g_list_nth_data(buffer_to_write, i);
-
-            fputs(buf->data, stdout);
+            cc_logfile_append(output, buf->data, buffer_length(buf));
         }
 
         GList *last = g_list_last(buffer_to_write);
@@ -123,6 +128,8 @@ static void *writer_func(void *targ) {
             }
 
         }
+        cc_logfile_flush(output);
     }
+    cc_logfile_flush(output);
     return NULL;
 }

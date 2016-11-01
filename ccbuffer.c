@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "ccbuffer.h"
 
-cc_buffer_t *create_buffer(size_t size) {
+cc_buffer_t *create_buffer(char *id, size_t size) {
     cc_buffer_t *buf = calloc(1, sizeof(cc_buffer_t));
+    buf->id = id;
     buf->data = malloc(size);
     buf->curr = buf->data;
     buf->size = size;

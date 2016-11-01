@@ -19,7 +19,7 @@ struct cc_logfile_s {
 
 typedef struct cc_logfile_s cc_logfile_t;
 
-cc_logfile_t *cc_logfile_create(char *basename, size_t roll_size, int flush_interval);
+cc_logfile_t *cc_logfile_create(char *basename, size_t roll_size, int flush_interval, int check_every_n);
 
 void cc_logfile_append(cc_logfile_t *logfile, char *logline, size_t len);
 

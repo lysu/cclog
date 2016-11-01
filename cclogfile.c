@@ -10,34 +10,34 @@ char *cc_get_log_file_name(char *basename, time_t *now) {
     memset(filename, 0, strlen(basename) + 65);
 
     char *curr = filename;
-    memccpy(curr, basename, 0, strlen(basename));
+    memcpy(curr, basename, strlen(basename));
     curr = curr + strlen(basename);
 
     char timebuf[32];
     struct tm tm;
     *now = time(NULL);
     gmtime_r(now, &tm);
-    strftime(timebuf, sizeof timebuf, ".%Y%m%d-%H%M%S.", &tm);
-    memccpy(curr, timebuf, 0, strlen(timebuf));
+    strftime(timebuf, sizeof timebuf, ".%Y%m%d-%H%M.", &tm);
+    memcpy(curr, timebuf, strlen(timebuf));
     curr = curr + strlen(timebuf);
 
     char *hostname =  "12121";
-    memccpy(curr, hostname, 0, strlen(hostname));
+    memcpy(curr, hostname, strlen(hostname));
     curr = curr + strlen(hostname);
 
     char *pid = "2333";
     char pidbuf[32];
-    snprintf(pidbuf, sizeof pidbuf, ".%d", pid);
-    memccpy(curr, pidbuf, 0, strlen(pidbuf));
+    snprintf(pidbuf, sizeof pidbuf, ".%s", pid);
+    memcpy(curr, pidbuf, strlen(pidbuf));
     curr = curr + strlen(pidbuf);
 
     char *suffix = ".log";
-    memccpy(curr, suffix, 0, sizeof(suffix));
+    memcpy(curr, suffix, strlen(suffix));
 
     return filename;
 }
 
-cc_logfile_t *cc_logfile_create(char *basename, size_t roll_size, int flush_interval) {
+cc_logfile_t *cc_logfile_create(char *basename, size_t roll_size, int flush_interval, int check_every_n) {
     cc_logfile_t *l = calloc(1, sizeof(cc_logfile_t));
     l->basename = basename;
     l->flush_interval = flush_interval;
@@ -46,6 +46,7 @@ cc_logfile_t *cc_logfile_create(char *basename, size_t roll_size, int flush_inte
     l->start_of_period = 0;
     l->last_roll = 0;
     l->last_flush = 0;
+    l->check_every_n = check_every_n;
     l->appender = calloc(1, sizeof(cc_file_appender_t));
     cc_logfile_roll_file(l);
     return l;
@@ -85,7 +86,14 @@ int cc_logfile_roll_file(cc_logfile_t *logfile) {
         logfile->last_roll = now;
         logfile->last_flush = now;
         logfile->start_of_period = start;
+        cc_file_appender_t *o_appender = logfile->appender;
         logfile->appender = cc_file_create(filename);
+        if (o_appender != NULL) {
+            if (o_appender->fp != NULL) {
+                fclose(o_appender->fp);
+            }
+            free(o_appender);
+        }
         return 1;
     }
     return 0;
